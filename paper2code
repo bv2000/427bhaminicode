@@ -1,0 +1,274 @@
+#Bhamini Model Code Final
+#Siegel - WIYH
+#To What Extent is Political Affiliation an Indicator of Paid Parental Leave Policy Support
+#varying distribution of political affiliations and measuring how much support there is for a paid parental leave policy (as a general policy not including variations in offerings)
+
+import math
+from posixpath import defpath
+import random
+from typing import final
+import numpy as np
+from os.path import exists
+import sys
+import pandas as pd
+from numpy import mean
+from numpy import repeat
+import statistics
+
+def addInitialNodes(affmean,affstdev, N): 	#Initialize Population
+
+	#lists of agents
+    AgentList = list()          #List of all people
+
+	#Create list of individuals
+    personcounter=0 		#counter for setting personNum
+    #Create lists
+    while personcounter<N: #Set node properties
+        #A node is a list of properties: personcounter, politicalaffiliation, sex, age, income, familysupport, prefneedleave (as determined by age, sex, race, familysupport, income) supportpolicy
+
+        politicalaffiliation=np.random.normal(loc=affmean, scale=affstdev) #set political affiliation 
+        sex=0
+        age=0
+        income=0
+        famsupp=0
+        prefneedleave=0.2
+        supportpolicy=0
+
+        node = [personcounter, politicalaffiliation, sex, age, income, famsupp, prefneedleave, supportpolicy] # edit this one
+        personcounter+=1
+        AgentList.append(node)
+    return AgentList
+
+def setdemographicharacteristics (AgentList): #set sex, age, income, family support **emphasize rationale for excluding race bc the combinations of information was not availabe
+    sexlist=[]
+    agelist=[]
+    incomelist=[]
+    famsupplist= []
+    for x in AgentList: 
+        personcounter = x[0]
+
+        #set sex
+        if personcounter<len(AgentList)*0.5: 
+            x[2]=0 #female
+        else: 
+            x[2]=1 #male
+
+        #set age
+        if personcounter<len(AgentList)*0.45:
+            x[3] = 0 #18-45
+        if len(AgentList)*0.45<=personcounter<len(AgentList)*0.80:
+            x[3] = 1 #45-65 
+        if len(AgentList)*0.80<=personcounter<=len(AgentList):
+            x[3] = 2 #65+
+
+        #set income
+        if personcounter<len(AgentList)*0.44:
+            x[4] = 0 # low aka under $50k
+        if len(AgentList)*0.44<=personcounter<len(AgentList)*0.75:
+            x[4] = 1 # med aka betwen $50 and 100k 
+        if len(AgentList)*0.75<=personcounter<=len(AgentList):
+            x[4] = 2 #high above 100k
+
+        #set family support
+        if personcounter<len(AgentList)*0.40:
+            x[5] = 0 # no support 
+        if len(AgentList)*0.40<=personcounter<len(AgentList)*0.70:
+            x[5] = 1 # some support
+        if len(AgentList)*0.70<=personcounter<=len(AgentList):
+            x[5] = 2 # lot of support
+        
+        sexlist.append(x[2])
+        agelist.append(x[3])
+        incomelist.append(x[4])
+        famsupplist.append(x[5])
+    return AgentList, sexlist, agelist, incomelist, famsupplist
+     
+
+def setprefsupport(AgentList): #calculate each agent's preference for paid parental leave as determined solely by age, sex, race, income, and family support
+    for x in AgentList:
+        personcounter=x[0]
+        politicalaffiliation=x[1]
+        sex=x[2]
+        age=x[3]
+        income=x[4]
+        famsupp=x[5]
+        prefneedleave=x[6]
+
+        #sex and support
+        if x[2]==0: #female
+            x[6]=x[6]+0.2
+        elif x[2]==1: #male
+            x[6]=x[6]+0.1
+
+        #age and support
+        if x[3]==0: #18-45
+            x[6]=x[6]+0.2
+        elif x[3]==1: #45-65
+            x[6]=x[6]+0.1
+        elif x[3]==2: #65+
+            x[6]=x[6]+0.05
+        
+        #income and support
+        if x[4]==0: #low
+            x[6]=x[6]+0.2
+        elif x[4]==1: #mid
+            x[6]=x[6]+0.1
+        elif x[4]==2: #high
+            x[6]=x[6]+0.05
+
+        #famsupp and support 
+        if x[5]==0: #low/non
+            x[6]=x[6]+0.2
+        elif x[5]==1: #some/mid
+            x[6]=x[6]+0.1
+        elif x[5]==2: #high/a lot
+            x[6]=x[6]+0.05
+    return AgentList
+
+def supportpolicy(AgentList): #calculate agent's preference for paid parental leave as determined by political affiliation and prefsupport 
+    #policy variations -- how to include here
+    for x in AgentList:
+        prefneedleave=x[6]
+        politicalaffiliation=x[1]
+        supportpolicy=x[7]
+        #dem = 0-0.35
+        #unaff/other=0.35-0.65
+        #rep=0.65-1
+        if x[1]<=0.4: #democrat
+            if x[6]>0.5:
+                x[7]=0 #support
+            else:
+                x[7]=1 #do not support
+        elif 0.4<x[1]<0.6:#unaff/other
+            if x[6]>0.6:
+                x[7]=0 #support
+            else: 
+                x[7]=1#do not support
+        else: 
+            if x[6]>0.75:
+                x[7]=0 #support
+            else:
+                x[7]=1 #do not support
+    return AgentList
+
+def listsineed(AgentList):
+    preflist=[]
+    afflist=[]
+    supportpolicylist=[]
+    demsupportlist=[]
+    repsupportlist=[]
+    othersupportlist=[]
+    for x in AgentList:
+        politicalaffiliation=x[1]
+        prefneedleave=x[6]
+        supportpolicy=x[7]
+        preflist.append(x[6])
+        afflist.append(x[1])
+        supportpolicylist.append(x[7])
+        if x[1]<=0.4: #democrat
+            if x[7]==0:
+                demsupportlist.append(x[7])
+            if x[7]==1:
+                demsupportlist.append(x[7])
+        elif 0.4<x[1]<0.6:#unaff/other
+            if x[7]==0:
+                othersupportlist.append(x[7])
+            if x[7]==1:
+                othersupportlist.append(x[7])
+        else: 
+            if x[7]==0:
+                repsupportlist.append(x[7])
+            if x[7]==1:
+                repsupportlist.append(x[7]) 
+    return AgentList, preflist, afflist, supportpolicylist, demsupportlist, othersupportlist, repsupportlist
+
+def countsineed(AgentList, preflist, afflist, supportpolicylist, demsupportlist, othersupportlist, repsupportlist):
+    demsupport=0
+    repsupport=0
+    othersupport=0
+    demtotal=0
+    reptotal=0
+    othertotal=0
+    for x in demsupportlist:
+        if x==0:
+            demsupport=demsupport+1
+    for x in repsupportlist:
+        if x==0:
+            repsupport=repsupport+1
+    for x in othersupportlist:
+        if x==0:
+            othersupport=othersupport+1
+    for x in afflist: 
+        if x<=0.4: #democrat
+            demtotal=demtotal+1
+        elif 0.4<x<0.6:#unaff/other
+            othertotal=othertotal+1
+        else: 
+            reptotal=reptotal+1
+    return AgentList, demsupport, repsupport, othersupport, demtotal, reptotal, othertotal
+
+def pandaspandaspandas(AgentList):
+    agelistDF=[]
+    sexlistDF=[]
+    incomelistDF=[]
+    politicalaffiliationlistDF=[]
+    famsupportlistDF=[]
+    preflistDF=[]
+    personlistDF=[]
+    supportyesnolistDF=[]
+    for x in AgentList:
+        personlistDF.append(x[0])
+        politicalaffiliationlistDF.append(x[1])
+        sexlistDF.append(x[2])
+        agelistDF.append(x[3])
+        incomelistDF.append(x[4])
+        famsupportlistDF.append(x[5])
+        preflistDF.append(x[6])
+        supportyesnolistDF.append(x[7])
+    return AgentList, personlistDF, politicalaffiliationlistDF, sexlistDF, agelistDF, incomelistDF, famsupportlistDF, preflistDF, supportyesnolistDF
+
+
+if __name__ == "__main__":
+    N=100
+    affstdev=0.35
+    runs=0
+    while runs<20:
+        affmeanlist=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+        for affmean in affmeanlist:
+            AgentList = addInitialNodes(affmean, affstdev, N)
+            AgentList, sexlist, agelist, incomelist, famsupplist = setdemographicharacteristics(AgentList)
+            AgentList = setprefsupport(AgentList)
+            AgentList = supportpolicy(AgentList)
+            AgentList, preflist, afflist, supportpolicylist, demsupportlist, othersupportlist, repsupportlist = listsineed(AgentList)
+            AgentList, demsupport, repsupport, othersupport, demtotal, reptotal,othertotal = countsineed(AgentList, preflist, afflist, supportpolicylist, demsupportlist, othersupportlist, repsupportlist)
+            AgentList, personlistDF, politicalaffiliationlistDF, sexlistDF, agelistDF, incomelistDF, famsupportlistDF, preflistDF, supportyesnolistDF = pandaspandaspandas(AgentList)
+            #print("preflist", preflist)
+            #print("afflist", afflist)
+            #print("supportpolicy list", supportpolicylist)
+            #print("demsupport", demsupportlist)
+            #print("repsupport", repsupportlist)
+            #print("othersupport", othersupportlist)
+            print("dem total", demtotal,"dem support", demsupport)
+            print("rep total", reptotal, "rep support", repsupport)
+            print("other total", othertotal, "other support", othersupport)
+            runs=runs+1
+
+    df = pd.DataFrame(
+    {
+    "person": personlistDF,
+    "political affiliation": politicalaffiliationlistDF,
+    "sex": sexlistDF, 
+    "age": agelistDF,
+    "income": incomelistDF, 
+    "family support": famsupportlistDF,
+    "pref/need for leave": preflistDF, 
+    "support yes/no": supportyesnolistDF
+    })
+    print(df)
+
+    df.to_csv('Bhamini_PandasDataframePaidLeave.csv')
+
+    sys.exit()
+    # or quit()x
+
+    #should i measure support as a proportion of each affiliation 
